@@ -1,59 +1,57 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Microsoft.WindowsAzure.Storage;
 using Microsoft.WindowsAzure.Storage.Table;
+
 
 namespace DTE
 {
     class Program
     {
-        static void Main(string[] args)
+        static void Main()
         {
             //This is the way we initialize a Cloud Storage Account with a plain stirng connection
-            CloudStorageAccount _account = CloudStorageAccount.Parse(
-            String.Format("DefaultEndpointsProtocol=https;AccountName={0};AccountKey={1}", "tucuenta",
-            "kjhkjhfsdfsdOpUUpWTZnwXe89kxANYoDAMEegL7G7wlCZhZ60UYNltbj6bZiH9x3eLHNSD1TEIQ+jw=="));
+            var account = CloudStorageAccount.Parse(
+            $"DefaultEndpointsProtocol=https;AccountName=tucuenta;AccountKey=" +
+            $"kjhkjhfsdfsdOpUUpWTZnwXe89kxANYoDAMEegL7G7wlCZhZ60UYNltbj6bZiH9x3eLHNSD1TEIQ+jw==");
 
             //We're gonna need a Table Client for table operations
-            CloudTableClient _tableClient = _account.CreateCloudTableClient();
+            var tableClient = account.CreateCloudTableClient();
             //And this will be the table we are gonna work with
-            CloudTable _tblInventory = _tableClient.GetTableReference("Inventory");
+            var tblInventory = tableClient.GetTableReference("Inventory");
 
 
             //These are simple filters represented by plain strings, but tools as GenerateFilterCondition and CombineFilters
             //make the process less error prone
-            string categoryFilter = TableQuery.GenerateFilterCondition(
+            var categoryFilter = TableQuery.GenerateFilterCondition(
                 "PartitionKey",
                 QueryComparisons.Equal,
                 "Compute");
 
-            string subcategoryFilter = TableQuery.GenerateFilterCondition(
+            var subcategoryFilter = TableQuery.GenerateFilterCondition(
                 "SubCategory",
                 QueryComparisons.Equal,
                 "Laptop");
 
             //This will produce: (PartitionKey eq 'Compute') and (SubCategory eq 'Laptop')
-            string combinedFilters = TableQuery.CombineFilters(
+            var combinedFilters = TableQuery.CombineFilters(
                 categoryFilter,
                 TableOperators.And,
                 subcategoryFilter);
 
             //With the filter already assembled, we proceed to create a query that will include the filter we made
-            TableQuery query = new TableQuery().Where(combinedFilters);
+            var query = new TableQuery().Where(combinedFilters);
             //Now the table has to lazy-execute the query
-            IEnumerable<DynamicTableEntity> virtualResults = 
-                _tblInventory.ExecuteQuery(query);
+            var virtualResults = 
+                tblInventory.ExecuteQuery(query);
             //And here we iterate over the virtual results in order to get them in a working list
-            List<DynamicTableEntity> laptops = virtualResults.ToList();
+            var laptops = virtualResults.ToList();
 
-            //Just shwo the results on the console. Observe how we can dynamically access the table properties
+            //Just show the results on the console. Observe how we can dynamically access the table properties
             foreach(var laptop in laptops)
             {
                 Console.WriteLine(
-                    String.Concat(
+                    string.Concat(
                         laptop.RowKey,
                         "\t",
                         laptop["StockAmount"].Int32Value));
@@ -62,14 +60,14 @@ namespace DTE
             Console.ReadLine();
 
 
-            //From here on, we are going to make aninsert/update
+            //From here on, we are going to make an insert/update
 
             //This is how we check for the existence of a unique element:
-            TableOperation retrieve = TableOperation.Retrieve("Compute", "X220");
-            TableResult retrievedLaptop = _tblInventory.Execute(retrieve);
+            var retrieve = TableOperation.Retrieve("Compute", "X220");
+            var retrievedLaptop = tblInventory.Execute(retrieve);
 
             //We need to cast the resulting object to DynamicTableEntity, because we don't have mapped entities            
-            DynamicTableEntity dynaLaptop = (DynamicTableEntity)retrievedLaptop.Result;
+            var dynaLaptop = (DynamicTableEntity)retrievedLaptop.Result;
 
             //If null, then the register doesn't exist, so we have to create a new one
             if(dynaLaptop==null)
@@ -97,8 +95,8 @@ namespace DTE
                 dynaLaptop.Properties.Add("RAM", EntityProperty.GeneratePropertyForString("32GB"));
             }
             //The updated/new entity is ready. We just have to upload it:
-            TableOperation updateOperation = TableOperation.InsertOrReplace(dynaLaptop);
-            _tblInventory.Execute(updateOperation);
+            var updateOperation = TableOperation.InsertOrReplace(dynaLaptop);
+            tblInventory.Execute(updateOperation);
         }
     }
 }
